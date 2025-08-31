@@ -6,6 +6,7 @@ class CoverageMap {
         this.currentNetworkFilter = '5g';
         this.currentLocation = null;
         this.coveragePoints = [];
+        this.currentCountry = 'us';
         
         this.initializeMap();
         this.bindEvents();
@@ -39,6 +40,14 @@ class CoverageMap {
     }
 
     bindEvents() {
+        // Country selector
+        document.getElementById('countrySelector').addEventListener('change', (e) => {
+            this.currentCountry = e.target.value;
+            this.updateCarrierOptions();
+            this.updateSearchPlaceholder();
+            this.loadDefaultLocation();
+        });
+
         // Search functionality
         document.getElementById('searchBtn').addEventListener('click', () => {
             this.performSearch();
@@ -96,8 +105,38 @@ class CoverageMap {
     }
 
     loadDefaultLocation() {
-        // Load New York City as default
-        this.searchForLocation('New York, NY');
+        // Load default city based on country
+        const defaultCity = this.currentCountry === 'us' ? 'New York, NY' : 'Mumbai, Maharashtra';
+        this.searchForLocation(defaultCity);
+    }
+
+    updateCarrierOptions() {
+        const carrierSelect = document.getElementById('carrierFilter');
+        const carriers = this.currentCountry === 'us' 
+            ? ['verizon', 'att', 'tmobile', 'sprint']
+            : ['jio', 'airtel', 'vi', 'bsnl'];
+        
+        // Clear existing options except "All Carriers"
+        carrierSelect.innerHTML = '<option value="all">All Carriers</option>';
+        
+        // Add country-specific carriers
+        carriers.forEach(carrier => {
+            const option = document.createElement('option');
+            option.value = carrier;
+            option.textContent = carrierInfo[this.currentCountry][carrier].name;
+            carrierSelect.appendChild(option);
+        });
+        
+        // Reset to "all"
+        this.currentCoverageFilter = 'all';
+        carrierSelect.value = 'all';
+    }
+
+    updateSearchPlaceholder() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.placeholder = this.currentCountry === 'us' 
+            ? 'Enter address, city, or zip code'
+            : 'Enter address, city, or PIN code';
     }
 
     performSearch() {
@@ -113,19 +152,20 @@ class CoverageMap {
     searchForLocation(searchTerm) {
         const normalizedTerm = searchTerm.toLowerCase();
         
-        // Check if it's a zip code
-        let cityKey = zipCodes[searchTerm];
+        // Check if it's a zip code or PIN code
+        let cityKey = zipCodes[this.currentCountry][searchTerm];
         
         if (!cityKey) {
             // Check if it's a city name
-            cityKey = Object.keys(coverageData.cities).find(key => 
+            const cities = coverageData[this.currentCountry].cities;
+            cityKey = Object.keys(cities).find(key => 
                 key.includes(normalizedTerm) || 
-                coverageData.cities[key].name.toLowerCase().includes(normalizedTerm)
+                cities[key].name.toLowerCase().includes(normalizedTerm)
             );
         }
 
-        if (cityKey && coverageData.cities[cityKey]) {
-            const city = coverageData.cities[cityKey];
+        if (cityKey && coverageData[this.currentCountry].cities[cityKey]) {
+            const city = coverageData[this.currentCountry].cities[cityKey];
             this.currentLocation = { ...city, key: cityKey };
             this.updateCoverageDisplay();
             this.updateLocationInfo(city.name);
@@ -140,8 +180,9 @@ class CoverageMap {
         const words = address.toLowerCase().split(/\s+/);
         let bestMatch = null;
         let maxMatches = 0;
+        const cities = coverageData[this.currentCountry].cities;
 
-        for (const [cityKey, cityData] of Object.entries(coverageData.cities)) {
+        for (const [cityKey, cityData] of Object.entries(cities)) {
             const cityWords = cityData.name.toLowerCase().split(/\s+/);
             const matches = words.filter(word => 
                 cityWords.some(cityWord => cityWord.includes(word) || word.includes(cityWord))
@@ -158,7 +199,9 @@ class CoverageMap {
             this.updateCoverageDisplay();
             this.updateLocationInfo(bestMatch.name);
         } else {
-            alert('Location not found. Please try a major US city or zip code.');
+            const countryName = this.currentCountry === 'us' ? 'US' : 'Indian';
+            const codeType = this.currentCountry === 'us' ? 'zip code' : 'PIN code';
+            alert(`Location not found. Please try a major ${countryName} city or ${codeType}.`);
         }
     }
 
@@ -180,7 +223,7 @@ class CoverageMap {
     }
 
     getFilteredCoverageData() {
-        let data = allCoverageData.filter(point => {
+        let data = allCoverageData[this.currentCountry].filter(point => {
             const distance = this.calculateDistance(
                 this.currentLocation.lat, this.currentLocation.lng,
                 point.lat, point.lng
@@ -215,7 +258,7 @@ class CoverageMap {
         let html = '<div class="coverage-visualization">';
         
         for (const [carrier, points] of Object.entries(carrierGroups)) {
-            const carrierData = carrierInfo[carrier];
+            const carrierData = carrierInfo[this.currentCountry][carrier];
             html += `
                 <div class="carrier-section" style="border-left: 4px solid ${carrierData.color};">
                     <h4>${carrierData.name}</h4>
@@ -262,7 +305,7 @@ class CoverageMap {
     }
 
     showPointDetails(carrier, index) {
-        const carrierData = carrierInfo[carrier];
+        const carrierData = carrierInfo[this.currentCountry][carrier];
         const points = this.coveragePoints.filter(p => p.carrier === carrier);
         const point = points[index];
         
@@ -380,7 +423,7 @@ class CoverageMap {
             
             Object.keys(comparison[network]).forEach(carrier => {
                 const data = comparison[network][carrier];
-                const carrierName = carrierInfo[carrier].name;
+                const carrierName = carrierInfo[this.currentCountry][carrier].name;
                 html += `<tr>
                     <td style="border: 1px solid #ddd; padding: 8px;">${carrierName}</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">${data.signal}%</td>

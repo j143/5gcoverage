@@ -91,6 +91,26 @@ header p {
     flex-wrap: wrap;
 }
 
+.country-section {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.country-section label {
+    font-weight: 600;
+    color: #555;
+}
+
+.country-section select {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    min-width: 140px;
+    background: white;
+}
+
 .filter-section label {
     font-weight: 600;
     color: #555;
